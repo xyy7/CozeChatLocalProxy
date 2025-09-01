@@ -1,0 +1,39 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8080,
+    "debug": false
+  },
+  "security": {
+    "allowed_domains": [
+      "lf-cdn.coze.cn",
+      "*.coze.cn",
+      "coze.com",
+      "*.coze.com",
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0"
+    ],
+    "blocked_domains": [
+      "internal.company.com",
+      "192.168.*",
+      "10.*",
+      "172.16.*"
+    ],
+    "max_request_size": "10MB",
+    "rate_limit": {
+      "enabled": true,
+      "requests_per_minute": 100
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": "cors_proxy.log"
+  },
+  "performance": {
+    "timeout": 30,
+    "max_connections": 100,
+    "keep_alive": true
+  }
+}

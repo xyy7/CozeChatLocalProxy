@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coze Chat 网页版</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .description {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .chat-container {
+            min-height: 500px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Coze AI 聊天助手</h1>
+        <div class="description">
+            <p>这是一个集成了 Coze Web SDK 的聊天界面，您可以在这里与 AI 助手进行对话。</p>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin-top: 20px; color: #856404;">
+                <h3 style="margin-top: 0; color: #856404;">⚠️ 常见问题解决方案</h3>
+                <p>如果聊天功能无法正常工作，请尝试：</p>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>禁用广告拦截器扩展</li>
+                    <li>禁用隐私保护工具</li>
+                    <li>使用浏览器无痕/隐私模式</li>
+                    <li>监控服务错误通常不影响主要聊天功能</li>
+                </ul>
+                <p style="font-size: 12px; margin: 5px 0 0 0;">打开浏览器开发者工具(F12)查看控制台获取详细信息</p>
+            </div>
+        </div>
+        <div class="chat-container" id="coze-chat-widget">
+            <!-- Coze Web SDK 将在这里渲染聊天组件 -->
+        </div>
+    </div>
+
+    <!-- Coze Web SDK 安装代码 -->
+    <script src="https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js"></script>
+    <script>
+        console.log('开始加载 Coze Web SDK...');
+        
+        // 初始化 Coze Web SDK
+        try {
+            const chatClient = new CozeWebSDK.WebChatClient({
+                config: {
+                    bot_id: '7451481843796787219',
+                },
+                componentProps: {
+                    title: 'Coze AI 助手',
+                },
+                auth: {
+                    type: 'token',
+                    token: 'pat_xiXSWip6TOYrMRGbpL3PuNZNob6GomnvZCvkiT7sWaddMzhnHAa6aFomcx93CkfB',
+                    onRefreshToken: function () {
+                        return 'pat_xiXSWip6TOyMRGbpL3PuNZNob6GomnvZCvkiT7sWaddMzhnHAa6aFomcx93CkfB'
+                    }
+                }
+            });
+            
+            console.log('Coze Web SDK 初始化成功');
+        } catch (error) {
+            console.error('Coze Web SDK 初始化失败:', error);
+        }
+    </script>
+    
+    <!-- 调试信息和解决方案 -->
+    <script>
+        // 页面加载完成后显示调试信息
+        window.addEventListener('load', function() {
+            console.log('页面加载完成');
+            console.log('如果看到监控服务错误，请尝试以下解决方案：');
+            console.log('1. 禁用广告拦截器扩展（如AdBlock、uBlock Origin等）');
+            console.log('2. 禁用隐私保护扩展');
+            console.log('3. 尝试使用无痕/隐私模式');
+            console.log('4. 这些错误通常不影响聊天功能的主要使用');
+        });
+    </script>
+</body>
+</html>

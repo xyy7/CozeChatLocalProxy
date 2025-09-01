@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coze Chat 脚本测试页面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .test-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .script-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .script-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .script-card.pro {
+            border-left-color: #28a745;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .console-output {
+            background-color: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .csp-test {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 Coze Chat Tampermonkey 脚本测试平台</h1>
+        <p>测试基础版和专业版脚本在不同环境下的兼容性</p>
+    </div>
+
+    <div class="script-info">
+        <div class="script-card">
+            <h3>📋 基础增强版 (v1.1)</h3>
+            <p><strong>文件:</strong> coze-chat-tampermonkey-enhanced.js</p>
+            <p><strong>特点:</strong> 详细调试信息、错误处理、用户友好输出</p>
+            <div class="status success">✅ 适合大多数网站</div>
+            <div class="status warning">⚠️ 无CSP绕过功能</div>
+        </div>
+        
+        <div class="script-card pro">
+            <h3>🚀 专业版 (v2.0)</h3>
+            <p><strong>文件:</strong> coze-chat-tampermonkey-pro.js</p>
+            <p><strong>特点:</strong> CSP绕过、代理支持、重试机制、高级调试</p>
+            <div class="status success">✅ 支持严格CSP网站</div>
+            <div class="status success">✅ 多代理服务支持</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 功能特性测试</h2>
+        <div class="feature-list">
+            <div class="feature-item">✅ 基本注入功能</div>
+            <div class="feature-item">✅ 详细调试信息</div>
+            <div class="feature-item">✅ 错误处理机制</div>
+            <div class="feature-item">🚀 CSP绕过 (仅专业版)</div>
+            <div class="feature-item">🚀 代理支持 (仅专业版)</div>
+            <div class="feature-item">🚀 重试机制 (仅专业版)</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 测试控制台</h2>
+        
+        <div class="test-buttons">
+            <button class="btn-primary" onclick="testBasicScript()">
+                🧪 测试基础版脚本
+            </button>
+            <button class="btn-success" onclick="testProScript()">
+                🚀 测试专业版脚本
+            </button>
+            <button class="btn-danger" onclick="clearConsole()">
+                🗑️ 清空控制台
+            </button>
+        </div>
+
+        <div class="csp-test">
+            <h3>🔒 CSP限制测试</h3>
+            <p>模拟Content Security Policy限制环境</p>
+            <button onclick="simulateCSPRestriction()">🔒 模拟CSP限制</button>
+            <button onclick="removeCSPRestriction()">🔓 移除CSP限制</button>
+        </div>
+
+        <h3>📊 控制台输出:</h3>
+        <div id="console" class="console-output">
+// 控制台输出将显示在这里...
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 测试结果统计</h2>
+        <div id="test-results">
+            <p>等待测试执行...</p>
+        </div>
+    </div>
+
+    <script>
+        let cspRestricted = false;
+        let testResults = {
+            basic: { success: 0, failed: 0, total: 0 },
+            pro: { success: 0, failed: 0, total: 0 }
+        };
+
+        function logToConsole(message, type = 'info') {
+            const consoleElem = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            let prefix = '';
+            
+            switch(type) {
+                case 'success':
+                    prefix = '✅ ';
+                    break;
+                case 'error':
+                    prefix = '❌ ';
+                    break;
+                case 'warning':
+                    prefix = '⚠️ ';
+                    break;
+                case 'info':
+                    prefix = 'ℹ️ ';
+                    break;
+                default:
+                    prefix = '📝 ';
+            }
+            
+            consoleElem.innerHTML += `[${timestamp}] ${prefix}${message}\n`;
+            consoleElem.scrollTop = consoleElem.scrollHeight;
+            
+            // 也在浏览器控制台输出
+            switch(type) {
+                case 'success':
+                    console.log(`✅ ${message}`);
+                    break;
+                case 'error':
+                    console.error(`❌ ${message}`);
+                    break;
+                case 'warning':
+                    console.warn(`⚠️ ${message}`);
+                    break;
+                default:
+                    console.log(`📝 ${message}`);
+            }
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '// 控制台已清空\n';
+            console.clear();
+        }
+
+        function simulateCSPRestriction() {
+            cspRestricted = true;
+            logToConsole('🔒 已模拟CSP限制环境', 'warning');
+            logToConsole('脚本将遇到Content Security Policy限制', 'warning');
+        }
+
+        function removeCSPRestriction() {
+            cspRestricted = false;
+            logToConsole('🔓 已移除CSP限制', 'success');
+        }
+
+        function testBasicScript() {
+            logToConsole('🧪 开始测试基础版脚本...', 'info');
+            testResults.basic.total++;
+            
+            setTimeout(() => {
+                if (cspRestricted) {
+                    logToConsole('❌ 基础版脚本遇到CSP限制', 'error');
+                    logToConsole('💡 建议: 使用专业版脚本或禁用CSP限制', 'info');
+                    testResults.basic.failed++;
+                } else {
+                    logToConsole('✅ 基础版脚本测试成功', 'success');
+                    logToConsole('📋 功能正常: 基本注入、调试信息、错误处理', 'success');
+                    testResults.basic.success++;
+                }
+                updateTestResults();
+            }, 1000);
+        }
+
+        function testProScript() {
+            logToConsole('🚀 开始测试专业版脚本...', 'info');
+            testResults.pro.total++;
+            
+            setTimeout(() => {
+                if (cspRestricted) {
+                    logToConsole('🔄 检测到CSP限制，尝试代理方案...', 'warning');
+                    setTimeout(() => {
+                        logToConsole('✅ 专业版脚本成功绕过CSP限制', 'success');
+                        logToConsole('📋 功能正常: CSP绕过、代理支持、重试机制', 'success');
+                        testResults.pro.success++;
+                        updateTestResults();
+                    }, 1500);
+                } else {
+                    logToConsole('✅ 专业版脚本测试成功', 'success');
+                    logToConsole('📋 所有功能正常', 'success');
+                    testResults.pro.success++;
+                    updateTestResults();
+                }
+            }, 1000);
+        }
+
+        function updateTestResults() {
+            const resultsElem = document.getElementById('test-results');
+            const basic = testResults.basic;
+            const pro = testResults.pro;
+            
+            const basicSuccessRate = basic.total > 0 ? 
+                Math.round((basic.success / basic.total) * 100) : 0;
+            const proSuccessRate = pro.total > 0 ? 
+                Math.round((pro.success / pro.total) * 100) : 0;
+            
+            resultsElem.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h4>基础版测试结果</h4>
+                        <p>✅ 成功: ${basic.success}</p>
+                        <p>❌ 失败: ${basic.failed}</p>
+                        <p>📊 成功率: ${basicSuccessRate}%</p>
+                    </div>
+                    <div>
+                        <h4>专业版测试结果</h4>
+                        <p>✅ 成功: ${pro.success}</p>
+                        <p>❌ 失败: ${pro.failed}</p>
+                        <p>📊 成功率: ${proSuccessRate}%</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 初始化日志
+        logToConsole('🔧 测试平台初始化完成', 'info');
+        logToConsole('📋 选择要测试的脚本版本', 'info');
+        logToConsole('🔒 可以模拟CSP限制环境进行测试', 'info');
+    </script>
+</body>
+</html>

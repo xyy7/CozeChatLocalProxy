@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coze 代理服务器测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .loading {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <h1>Coze 代理服务器测试页面</h1>
+    
+    <div class="test-section">
+        <h2>1. 测试本地代理服务器</h2>
+        <p>确保代理服务器正在运行: <code>python start_proxy.py</code></p>
+        <button onclick="testLocalProxy()">测试本地代理</button>
+        <div id="localProxyResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 测试代理URL格式</h2>
+        <p>测试不同的URL构造方式：</p>
+        <button onclick="testPathFormat()">测试路径格式</button>
+        <button onclick="testQueryFormat()">测试查询参数格式</button>
+        <div id="formatTestResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 测试Coze SDK加载</h2>
+        <p>模拟Tampermonkey脚本的加载逻辑：</p>
+        <button onclick="testSDKLoading()">测试SDK加载</button>
+        <div id="sdkTestResult" class="result"></div>
+    </div>
+
+    <script>
+        const PROXY_URL = 'http://127.0.0.1:8080/';
+        const SDK_URL = 'https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js';
+        const TEST_URL = 'https://httpbin.org/get';
+
+        function setResult(elementId, message, className = '') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = 'result ' + className;
+        }
+
+        function testLocalProxy() {
+            setResult('localProxyResult', '🔄 测试中...', 'loading');
+            
+            fetch(PROXY_URL)
+                .then(response => response.json())
+                .then(data => {
+                    setResult('localProxyResult', 
+                        `✅ 代理服务器正常运行\n` +
+                        `📊 服务信息: ${data.service}\n` +
+                        `🚀 版本: ${data.version}\n` +
+                        `📋 端点: ${JSON.stringify(data.endpoints, null, 2)}`, 
+                        'success');
+                })
+                .catch(error => {
+                    setResult('localProxyResult', 
+                        `❌ 代理服务器不可用\n` +
+                        `📛 错误: ${error.message}\n` +
+                        `💡 请运行: python start_proxy.py`, 
+                        'error');
+                });
+        }
+
+        function testPathFormat() {
+            const url = PROXY_URL + encodeURIComponent(TEST_URL);
+            setResult('formatTestResult', `🔄 测试路径格式: ${url}`, 'loading');
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    setResult('formatTestResult', 
+                        `✅ 路径格式工作正常\n` +
+                        `📊 状态: ${response.status}\n` +
+                        `🌐 代理URL: ${data.url}`, 
+                        'success');
+                })
+                .catch(error => {
+                    setResult('formatTestResult', 
+                        `❌ 路径格式失败\n` +
+                        `📛 错误: ${error.message}`, 
+                        'error');
+                });
+        }
+
+        function testQueryFormat() {
+            const url = PROXY_URL + '?url=' + encodeURIComponent(TEST_URL);
+            setResult('formatTestResult', `🔄 测试查询参数格式: ${url}`, 'loading');
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    setResult('formatTestResult', 
+                        `✅ 查询参数格式工作正常\n` +
+                        `📊 状态: ${response.status}\n` +
+                        `🌐 代理URL: ${data.url}`, 
+                        'success');
+                })
+                .catch(error => {
+                    setResult('formatTestResult', 
+                        `❌ 查询参数格式失败\n` +
+                        `📛 错误: ${error.message}`, 
+                        'error');
+                });
+        }
+
+        function testSDKLoading() {
+            const proxyUrl = PROXY_URL + encodeURIComponent(SDK_URL);
+            setResult('sdkTestResult', `🔄 尝试加载SDK: ${proxyUrl}`, 'loading');
+            
+            // 创建script标签模拟加载
+            const script = document.createElement('script');
+            script.src = proxyUrl;
+            
+            const timeout = setTimeout(() => {
+                setResult('sdkTestResult', 
+                    `⏰ SDK加载超时\n` +
+                    `💡 可能是CSP限制或代理问题`, 
+                    'error');
+                script.remove();
+            }, 10000);
+            
+            script.onload = function() {
+                clearTimeout(timeout);
+                setResult('sdkTestResult', 
+                    `✅ SDK加载成功\n` +
+                    `📦 CozeWebSDK: ${typeof CozeWebSDK}`, 
+                    'success');
+            };
+            
+            script.onerror = function(error) {
+                clearTimeout(timeout);
+                setResult('sdkTestResult', 
+                    `❌ SDK加载失败\n` +
+                    `📛 错误: 请检查控制台详情`, 
+                    'error');
+                console.error('SDK加载错误:', error);
+            };
+            
+            document.head.appendChild(script);
+        }
+    </script>
+</body>
+</html>
