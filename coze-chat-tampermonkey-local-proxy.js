@@ -1,15 +1,15 @@
 // ==UserScript==
-// @name         Coze Chat Injector Pro - Local Proxy
+// @name         Coze Chat Local Proxy
 // @namespace    http://tampermonkey.net/
-// @version      2.1
-// @description  高级 Coze 聊天组件注入器 - 使用本地CORS代理绕过CSP
+// @version      1.0
+// @description  为Coze Web SDK提供本地CORS代理支持
 // @author       You
-// @match        *://*/*
+// @match        https://www.coze.cn/*
+// @match        https://www.coze.com/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @connect      lf-cdn.coze.cn
 // @connect      localhost
 // @connect      127.0.0.1
 // ==/UserScript==
@@ -22,8 +22,7 @@
         sdkLoaded: false,
         initRetryCount: 0,
         maxRetries: 8,
-        lastError: null,
-        proxyMode: 'local' // local | external | direct
+        lastError: null
     };
     
     // 配置常量
@@ -39,14 +38,7 @@
         PROXY_CHECK_TIMEOUT: 3000
     };
     
-    // 代理服务列表（备用方案）
-    const PROXY_SERVICES = [
-        CONFIG.LOCAL_PROXY_URL, // 本地代理优先
-        'https://cors-anywhere.herokuapp.com/',
-        'https://api.codetabs.com/v1/proxy?quest=',
-        'https://corsproxy.io/?',
-        'https://proxy.cors.sh/?'
-    ];
+    // 不再需要PROXY_SERVICES数组，直接使用CONFIG.LOCAL_PROXY_URL
     
     // 防止重复注入
     if (window.cozeInjected) {
@@ -67,16 +59,13 @@
         checkLocalProxyAvailability().then(isAvailable => {
             if (isAvailable) {
                 log('✅ 本地CORS代理可用，使用本地代理', 'success');
-                window.cozeChatState.proxyMode = 'local';
-                loadWithProxy(0); // 使用第一个代理（本地代理）
+                loadWithProxy(); // 使用本地代理
             } else {
                 log('⚠️ 本地CORS代理不可用，尝试直接加载', 'warn');
-                window.cozeChatState.proxyMode = 'direct';
                 loadWithDirectMethod();
             }
         }).catch(error => {
             log('❌ 代理检查失败，尝试直接加载', 'error');
-            window.cozeChatState.proxyMode = 'direct';
             loadWithDirectMethod();
         });
     }
@@ -85,7 +74,7 @@
     function checkLocalProxyAvailability() {
         return new Promise((resolve, reject) => {
             const testUrl = CONFIG.LOCAL_PROXY_URL + (CONFIG.LOCAL_PROXY_URL.endsWith('/') ? '' : '/') +
-                           encodeURIComponent('https://httpbin.org/get');
+                           encodeURIComponent('https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js');
             
             if (typeof GM_xmlhttpRequest === 'function') {
                 GM_xmlhttpRequest({
@@ -93,9 +82,8 @@
                     url: testUrl,
                     timeout: CONFIG.PROXY_CHECK_TIMEOUT,
                     onload: function(response) {
-                        // 检查代理是否真正工作（返回200且包含有效内容）
-                        const isAvailable = response.status === 200 &&
-                                          response.responseText.includes('httpbin.org');
+                        // 检查代理是否真正工作（返回200状态码）
+                        const isAvailable = response.status === 200;
                         resolve(isAvailable);
                     },
                     onerror: function() {
@@ -113,7 +101,7 @@
                     signal: AbortSignal.timeout(CONFIG.PROXY_CHECK_TIMEOUT)
                 })
                 .then(response => response.text())
-                .then(text => resolve(response.ok && text.includes('httpbin.org')))
+                .then(text => resolve(response.ok))
                 .catch(() => resolve(false));
             }
         });
@@ -128,10 +116,9 @@
         
         // 设置超时
         const loadTimeout = setTimeout(() => {
-            log('⏰ Coze SDK 直接加载超时，尝试代理方案', 'warn');
+            log('⏰ Coze SDK 直接加载超时', 'warn');
             script.remove();
-            window.cozeChatState.proxyMode = 'external';
-            loadWithProxy(1); // 跳过本地代理，从外部代理开始
+            log('❌ 直接加载失败，请启动本地CORS代理服务器', 'error');
         }, CONFIG.TIMEOUT);
         
         script.onload = function() {
@@ -146,54 +133,38 @@
             log('❌ Coze SDK 直接加载失败', 'error');
             log(`📛 错误: ${error}`, 'error');
             analyzeCSPError();
-            window.cozeChatState.proxyMode = 'external';
-            loadWithProxy(1); // 跳过本地代理，从外部代理开始
+            log('❌ 直接加载失败，请启动本地CORS代理服务器', 'error');
         };
         
         document.head.appendChild(script);
     }
     
-    // 使用代理加载
-    function loadWithProxy(proxyIndex, attempt = 1) {
-        if (proxyIndex >= PROXY_SERVICES.length) {
-            log('💥 所有代理服务都失败了', 'error');
-            showFinalError();
-            return;
-        }
-        
+    // 使用本地代理加载
+    function loadWithProxy(attempt = 1) {
         if (attempt > CONFIG.RETRY_ATTEMPTS) {
-            log(`🔄 代理 ${proxyIndex} 重试次数耗尽，尝试下一个代理`, 'warn');
-            loadWithProxy(proxyIndex + 1, 1);
+            log('❌ 本地代理重试次数耗尽', 'error');
+            log('💡 请检查本地代理服务器是否正常运行', 'info');
             return;
         }
-        
-        const proxyBase = PROXY_SERVICES[proxyIndex];
-        let proxyUrl;
-        
-        if (proxyIndex === 0) {
-            // 本地代理 - 使用路径格式（与代理服务器实现一致）
-            proxyUrl = proxyBase + (proxyBase.endsWith('/') ? '' : '/') +
+
+        // 本地代理 - 使用路径格式（与代理服务器实现一致）
+        const proxyUrl = CONFIG.LOCAL_PROXY_URL + (CONFIG.LOCAL_PROXY_URL.endsWith('/') ? '' : '/') +
                       encodeURIComponent(CONFIG.SDK_URL);
-        } else {
-            // 外部代理 - 使用查询参数方式
-            proxyUrl = proxyBase + (proxyBase.includes('?') ? '' : '?') +
-                      encodeURIComponent(CONFIG.SDK_URL);
-        }
-        
-        log(`🔄 尝试代理 ${proxyIndex + 1}/${PROXY_SERVICES.length} (${window.cozeChatState.proxyMode}模式, 尝试 ${attempt}/${CONFIG.RETRY_ATTEMPTS})`, 'info');
+
+        log(`🔄 尝试本地代理 (尝试 ${attempt}/${CONFIG.RETRY_ATTEMPTS})`, 'info');
         log(`🌐 代理URL: ${proxyUrl}`, 'debug');
-        
+
         if (typeof GM_xmlhttpRequest === 'function') {
             // 使用 Tampermonkey 的跨域请求
-            loadWithGMRequest(proxyUrl, proxyIndex, attempt);
+            loadWithGMRequest(proxyUrl, attempt);
         } else {
             // 使用常规 script 标签
-            loadWithScriptTag(proxyUrl, proxyIndex, attempt);
+            loadWithScriptTag(proxyUrl, attempt);
         }
     }
     
     // 使用 GM_xmlhttpRequest 加载
-    function loadWithGMRequest(url, proxyIndex, attempt) {
+    function loadWithGMRequest(url, attempt) {
         GM_xmlhttpRequest({
             method: 'GET',
             url: url,
@@ -203,30 +174,54 @@
                     log('✅ 代理请求成功', 'success');
                     injectScriptContent(response.responseText);
                 } else {
-                    log(`❌ 代理请求失败: HTTP ${response.status}`, 'error');
-                    loadWithProxy(proxyIndex, attempt + 1);
+                    log(`❌ 本地代理请求失败: HTTP ${response.status}`, 'error');
+                    if (attempt < CONFIG.RETRY_ATTEMPTS) {
+                        log(`🔄 将在 ${attempt * 1000}ms 后重试...`, 'info');
+                        setTimeout(() => loadWithProxy(attempt + 1), attempt * 1000);
+                    } else {
+                        log('❌ 本地代理重试次数耗尽', 'error');
+                        log('💡 请检查本地代理服务器是否正常运行', 'info');
+                    }
                 }
             },
             onerror: function(error) {
-                log(`❌ 代理请求错误: ${error}`, 'error');
-                loadWithProxy(proxyIndex, attempt + 1);
+                log(`❌ 本地代理请求错误: ${error}`, 'error');
+                if (attempt < CONFIG.RETRY_ATTEMPTS) {
+                    log(`🔄 将在 ${attempt * 1000}ms 后重试...`, 'info');
+                    setTimeout(() => loadWithProxy(attempt + 1), attempt * 1000);
+                } else {
+                    log('❌ 本地代理重试次数耗尽', 'error');
+                    log('💡 请检查本地代理服务器是否正常运行', 'info');
+                }
             },
             ontimeout: function() {
-                log('⏰ 代理请求超时', 'warn');
-                loadWithProxy(proxyIndex, attempt + 1);
+                log('⏰ 本地代理请求超时', 'warn');
+                if (attempt < CONFIG.RETRY_ATTEMPTS) {
+                    log(`🔄 将在 ${attempt * 1000}ms 后重试...`, 'info');
+                    setTimeout(() => loadWithProxy(attempt + 1), attempt * 1000);
+                } else {
+                    log('❌ 本地代理重试次数耗尽', 'error');
+                    log('💡 请检查本地代理服务器是否正常运行', 'info');
+                }
             }
         });
     }
     
     // 使用 script 标签加载
-    function loadWithScriptTag(url, proxyIndex, attempt) {
+    function loadWithScriptTag(url, attempt) {
         const script = document.createElement('script');
         script.src = url;
         
         const timeout = setTimeout(() => {
-            log('⏰ 代理脚本加载超时', 'warn');
+            log('⏰ 本地代理脚本加载超时', 'warn');
             script.remove();
-            loadWithProxy(proxyIndex, attempt + 1);
+            if (attempt < CONFIG.RETRY_ATTEMPTS) {
+                log(`🔄 将在 ${attempt * 1000}ms 后重试...`, 'info');
+                setTimeout(() => loadWithProxy(attempt + 1), attempt * 1000);
+            } else {
+                log('❌ 本地代理重试次数耗尽', 'error');
+                log('💡 请检查本地代理服务器是否正常运行', 'info');
+            }
         }, CONFIG.TIMEOUT);
         
         script.onload = function() {
@@ -238,8 +233,14 @@
         
         script.onerror = function() {
             clearTimeout(timeout);
-            log('❌ 代理加载失败', 'error');
-            loadWithProxy(proxyIndex, attempt + 1);
+            log('❌ 本地代理加载失败', 'error');
+            if (attempt < CONFIG.RETRY_ATTEMPTS) {
+                log(`🔄 将在 ${attempt * 1000}ms 后重试...`, 'info');
+                setTimeout(() => loadWithProxy(attempt + 1), attempt * 1000);
+            } else {
+                log('❌ 本地代理重试次数耗尽', 'error');
+                log('💡 请检查本地代理服务器是否正常运行', 'info');
+            }
         };
         
         document.head.appendChild(script);
@@ -300,9 +301,6 @@
                 log('   - 尝试刷新页面或检查网络连接', 'info');
                 log('   - 全局变量状态:', 'info');
                 log(`     CozeWebSDK: ${typeof CozeWebSDK}`, 'info');
-                
-                // 尝试检测其他可能的全局变量名称
-                detectAlternativeSDKNames();
             }
             return;
         }
@@ -341,7 +339,7 @@
             if (typeof GM_notification === 'function') {
                 GM_notification({
                     title: 'Coze 聊天注入成功',
-                    text: `使用${window.cozeChatState.proxyMode}模式加载`,
+                    text: '使用本地代理模式加载',
                     timeout: 3000
                 });
             }
@@ -353,26 +351,6 @@
         }
     }
     
-    // 检测其他可能的SDK全局变量名称
-    function detectAlternativeSDKNames() {
-        const possibleNames = ['Coze', 'coze', 'CozeSDK', 'cozeSDK', 'WebChatSDK'];
-        const detected = [];
-        
-        for (const name of possibleNames) {
-            try {
-                if (typeof window[name] !== 'undefined') {
-                    detected.push(`${name}: ${typeof window[name]}`);
-                }
-            } catch (e) {
-                // 忽略访问错误
-            }
-        }
-        
-        if (detected.length > 0) {
-            log('🔍 检测到其他可能的全局变量:', 'info');
-            detected.forEach(item => log(`   - ${item}`, 'info'));
-        }
-    }
     
     // 设置聊天事件
     function setupChatEvents(chatClient) {
@@ -394,24 +372,12 @@
     // CSP 错误分析
     function analyzeCSPError() {
         log('🔍 分析可能的CSP限制...', 'info');
-        log('📋 常见CSP绕过方案:', 'info');
-        log('1. 使用CORS代理服务', 'info');
-        log('2. 创建浏览器扩展修改CSP头', 'info');
-        log('3. 使用Service Worker代理', 'info');
-        log('4. 内联脚本注入', 'info');
-        log('5. 使用本地CORS代理服务器', 'info');
+        log('📋 建议解决方案:', 'info');
+        log('1. 启动本地CORS代理服务器: python start_proxy.py', 'info');
+        log('2. 检查代理服务器是否在 127.0.0.1:8080 运行', 'info');
+        log('3. 查看浏览器控制台获取详细错误信息', 'info');
     }
     
-    // 显示最终错误
-    function showFinalError() {
-        log('💥 所有注入方法都失败了', 'error');
-        log('🛠️ 最终解决方案建议:', 'info');
-        log('1. 检查浏览器控制台的详细错误信息', 'info');
-        log('2. 禁用所有广告拦截和隐私保护扩展', 'info');
-        log('3. 尝试不同的浏览器', 'info');
-        log('4. 使用开发者工具手动注入', 'info');
-        log('5. 启动本地CORS代理: python start_proxy.py', 'info');
-    }
     
     // 初始化日志系统
     function initLogging() {

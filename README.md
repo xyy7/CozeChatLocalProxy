@@ -1,155 +1,166 @@
-# CORS 代理服务器解决方案
+# Coze Chat CORS 代理解决方案
 
-这是一个完整的 CORS 代理解决方案，用于绕过浏览器的同源策略和 CSP 限制，特别针对 Coze 聊天 SDK 的注入问题。
+这是一个用于绕过Coze Web SDK的CSP和同源策略限制的本地代理解决方案，包含Tampermonkey用户脚本和Python代理服务器。
 
-## 文件结构
+## 项目文件说明
 
+- `coze-chat-tampermonkey-local-proxy.js` - Tampermonkey用户脚本（浏览器端）
+- `cors_proxy_server.py` - CORS代理服务器主程序
+- `start_proxy.py` - 简化启动脚本
+- `install.py` - 依赖安装脚本
+- `start.bat` - Windows批处理启动文件
+- `config.json` - 配置文件
+
+## 安装流程
+
+### 1. 安装Python环境
+确保您已安装Python 3.7或更高版本：
+```bash
+python --version
 ```
-.
-├── cors_proxy_server.py      # CORS 代理服务器主程序
-├── start_proxy.py           # 启动脚本
-├── config.json              # 配置文件
-├── coze-chat-tampermonkey-local-proxy.js  # 更新版的 Tampermonkey 脚本
-└── README.md               # 说明文档
+
+### 2. 安装依赖包
+运行安装脚本自动安装所需依赖：
+```bash
+python install.py
 ```
 
-## 功能特性
-
-- ✅ 完整的 CORS 代理服务器，支持 GET/POST/PUT/DELETE/OPTIONS
-- ✅ 自动添加 CORS 头信息，绕过同源策略
-- ✅ 支持本地代理优先，外部代理备用的智能策略
-- ✅ 详细的日志记录和错误处理
-- ✅ 可配置的安全策略和域名白名单
-- ✅ 与 Tampermonkey 脚本完美集成
-
-## 安装依赖
-
-首先需要安装 Python 依赖：
-
+或者手动安装：
 ```bash
 pip install aiohttp certifi
 ```
 
-## 启动代理服务器
+### 3. 安装Tampermonkey浏览器扩展
+- Chrome: 从Chrome网上应用店安装Tampermonkey
+- Firefox: 从Firefox附加组件商店安装Tampermonkey
+- Edge: 从Microsoft Store安装Tampermonkey
 
-### 方法一：使用启动脚本（推荐）
+## 脚本安装到浏览器
 
+### 方法1：直接安装（推荐）
+1. 打开Tampermonkey扩展
+2. 点击"创建新脚本"
+3. 复制 `coze-chat-tampermonkey-local-proxy.js` 的全部内容
+4. 粘贴到编辑器中并保存
+
+### 方法2：文件导入
+1. 在Tampermonkey中点击"实用工具"
+2. 选择"文件"标签页
+3. 点击"选择文件"并选择 `coze-chat-tampermonkey-local-proxy.js`
+4. 点击"安装"
+
+### 方法3：URL安装
+如果脚本托管在网络上，可以通过URL直接安装。
+
+## 启动本地服务器
+
+### Windows系统
+双击运行 `start.bat` 文件，或命令行运行：
+```cmd
+start.bat
+```
+
+### macOS/Linux系统
 ```bash
 python start_proxy.py
 ```
 
-可选参数：
-- `--host 0.0.0.0` - 绑定到所有网络接口
-- `--port 8080` - 使用指定端口
-- `--debug` - 启用调试模式
-- `--config config.json` - 使用指定配置文件
-
-### 方法二：直接运行主程序
-
+或者直接运行主服务器：
 ```bash
 python cors_proxy_server.py
 ```
 
-## 配置说明
+### 自定义配置启动
+```bash
+# 指定主机和端口
+python start_proxy.py --host 127.0.0.1 --port 8080
 
-编辑 `config.json` 文件来自定义服务器行为：
+# 使用自定义配置文件
+python start_proxy.py --config my_config.json
 
+# 启用调试模式
+python start_proxy.py --debug
+```
+
+## 验证服务器运行
+
+服务器启动后，访问以下地址验证：
+```
+http://127.0.0.1:8080/
+```
+
+应该看到类似这样的响应：
 ```json
 {
-  "server": {
-    "host": "127.0.0.1",
-    "port": 8080,
-    "debug": false
+  "service": "CORS Proxy Server",
+  "version": "1.0.0",
+  "endpoints": {
+    "GET /{url}": "代理GET请求",
+    "POST /{url}": "代理POST请求",
+    "PUT /{url}": "代理PUT请求",
+    "DELETE /{url}": "代理DELETE请求",
+    "OPTIONS /{url}": "处理预检请求"
   },
-  "security": {
-    "allowed_domains": ["lf-cdn.coze.cn", "*.coze.cn"],
-    "max_request_size": "10MB"
-  }
+  "usage": "将目标URL编码后附加到代理URL后，例如: /https://example.com/api/data"
 }
 ```
 
-## 使用方法
+## 使用流程
 
-### 1. 基本代理请求
-
-```javascript
-// 使用路径方式
-const proxyUrl = `http://127.0.0.1:8080/https://lf-cdn.coze.cn/sdk.js`;
-
-// 使用查询参数方式  
-const proxyUrl = `http://127.0.0.1:8080/?url=https://lf-cdn.coze.cn/sdk.js`;
-```
-
-### 2. 在 Tampermonkey 脚本中使用
-
-更新你的 Tampermonkey 脚本，使用新的 `coze-chat-tampermonkey-local-proxy.js` 文件。
-
-### 3. 测试代理服务器
-
-```bash
-# 测试代理是否工作
-curl "http://127.0.0.1:8080/https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js"
-
-# 查看服务器信息
-curl http://127.0.0.1:8080/
-```
-
-## 代理策略
-
-脚本采用智能代理策略：
-
-1. **首先检查本地代理** - 如果本地代理服务器运行中，优先使用
-2. **尝试直接加载** - 如果本地代理不可用，尝试直接加载
-3. **使用外部代理** - 如果直接加载失败，使用外部 CORS 代理服务
-4. **备用代理列表** - 包含多个可靠的 CORS 代理服务
-
-## 安全注意事项
-
-- 默认只允许访问白名单中的域名
-- 在生产环境中应该配置更严格的安全策略
-- 不建议将代理服务器暴露到公网
-- 定期更新依赖包以确保安全
+1. **启动代理服务器** - 运行上述启动命令
+2. **安装用户脚本** - 在浏览器中安装Tampermonkey脚本
+3. **访问Coze网站** - 打开 https://www.coze.cn/ 或 https://www.coze.com/
+4. **自动注入** - 脚本会自动检测并注入Coze聊天组件
 
 ## 故障排除
 
 ### 常见问题
 
-1. **端口被占用**
-   ```bash
-   # 查找占用端口的进程
-   netstat -ano | findstr :8080
-   # 或者使用其他端口
-   python start_proxy.py --port 8081
-   ```
+1. **Python未安装**
+   - 下载并安装Python 3.7+ from python.org
 
-2. **代理连接失败**
+2. **依赖安装失败**
+   - 尝试使用管理员权限运行命令
+   - 或者使用: `pip install --user aiohttp certifi`
+
+3. **端口被占用**
+   - 修改config.json中的端口号
+   - 或使用: `python start_proxy.py --port 8081`
+
+4. **代理服务器无法连接**
    - 检查防火墙设置
-   - 确认代理服务器正在运行
-   - 查看日志文件获取详细信息
+   - 确保代理服务器正在运行
 
-3. **CSP 仍然阻止**
-   - 尝试使用不同的注入方法
-   - 检查浏览器控制台的详细错误信息
+5. **CSP限制仍然存在**
+   - 检查浏览器控制台错误信息
+   - 确保代理URL配置正确
 
 ### 日志查看
 
-日志默认输出到控制台，也可以配置输出到文件：
+服务器日志默认输出到控制台，如需查看详细日志：
+- 修改config.json中的logging配置
+- 或查看生成的cors_proxy.log文件
 
-```json
-{
-  "logging": {
-    "level": "DEBUG",
-    "file": "cors_proxy.log"
-  }
-}
-```
+## 配置说明
 
-## 性能优化
+编辑 `config.json` 文件来自定义设置：
 
-- 调整 `max_connections` 参数控制并发连接数
-- 启用 `keep_alive` 提高连接复用率
-- 设置适当的 `timeout` 值避免资源浪费
+- `server` - 服务器配置（主机、端口、调试模式）
+- `security` - 安全设置（允许的域名、最大请求大小）
+- `logging` - 日志配置（级别、格式、文件）
+- `performance` - 性能设置（超时、最大连接数）
 
-## 许可证
+## 技术支持
 
-MIT License - 可以自由使用和修改。
+如果遇到问题：
+1. 检查浏览器控制台错误信息
+2. 查看服务器控制台输出
+3. 确保所有步骤都正确执行
+
+## 更新日志
+
+- v1.0.0 - 初始版本发布
+  - 支持Coze Web SDK代理
+  - 自动CORS头处理
+  - 多请求方法支持
+  - Windows批处理支持
