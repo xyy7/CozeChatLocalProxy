@@ -104,24 +104,44 @@ def callback():
         )
 
     try:
-        oauth_token = coze_oauth_app.get_access_token()
+        # 获取会话名称参数（从查询参数或请求头）
+        session_name = request.args.get('session_name') or request.headers.get('X-Session-Name')
+        
+        if session_name:
+            print(f"🔑 为会话 {session_name} 生成JWT token")
+        else:
+            print("⚠️  未提供会话名称，使用默认token")
+
+        oauth_token = coze_oauth_app.get_access_token(session_name=session_name)
+        
         # 将 OAuth token 保存到 session 中，以便后续使用
-        session[f'oauth_token_{app_config["client_id"]}'] = {
+        session_key = f'oauth_token_{app_config["client_id"]}'
+        if session_name:
+            session_key += f'_{session_name}'
+            
+        session[session_key] = {
             "token_type": oauth_token.token_type,
             "access_token": oauth_token.access_token,
             "expires_in": oauth_token.expires_in,
+            "session_name": session_name  # 保存会话名称信息
         }
 
         expires_str = timestamp_to_datetime(oauth_token.expires_in)
 
         # 如果是 AJAX 请求，返回 JSON 格式
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return {
+            response_data = {
                 "token_type": oauth_token.token_type,
                 "access_token": oauth_token.access_token,
                 "refresh_token": "",
                 "expires_in": f"{oauth_token.expires_in} ({expires_str})",
             }
+            
+            # 添加会话名称信息到响应
+            if session_name:
+                response_data['session_name'] = session_name
+                
+            return response_data
 
         # 否则返回 HTML 页面
         return render_template(
@@ -131,6 +151,7 @@ def callback():
                 "access_token": oauth_token.access_token,
                 "refresh_token": "",
                 "expires_in": f"{oauth_token.expires_in} ({expires_str})",
+                "session_name": session_name or "未提供"
             },
         )
     except Exception as e:

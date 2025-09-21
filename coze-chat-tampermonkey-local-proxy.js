@@ -25,6 +25,12 @@
         lastError: null
     };
     
+    // 用户配置管理
+    const USER_CONFIG = {
+        sessionName: null,
+        userToken: null
+    };
+    
     // 配置常量
     const CONFIG = {
         BOT_ID: '7451481843796787219',
@@ -49,6 +55,9 @@
     
     // 初始化日志系统
     initLogging();
+    
+    // 初始化用户配置
+    initializeUserConfig();
     
     // 主注入函数
     function injectCozeChat() {
@@ -455,19 +464,64 @@
         log(`🔗 SDK URL: ${CONFIG.SDK_URL}`, 'debug');
         log(`🤖 Bot ID: ${CONFIG.BOT_ID}`, 'debug');
         log(`🔐 JWT Auth Server: ${CONFIG.JWT_AUTH_SERVER}`, 'debug');
+        log(`👤 会话名称: ${USER_CONFIG.sessionName || '未设置'}`, 'debug');
     }
 
-    // 获取JWT Access Token
-    async function fetchJWTAccessToken() {
-        log('🔐 正在获取JWT Access Token...', 'info');
+    // 生成随机会话名称
+    function generateSessionName() {
+        const timestamp = Date.now().toString(36);
+        const randomStr = Math.random().toString(36).substr(2, 6);
+        return 'session_' + timestamp + '_' + randomStr;
+    }
+
+    // 初始化用户配置
+    function initializeUserConfig() {
+        try {
+            // 尝试从存储中获取会话名称
+            if (typeof GM_getValue === 'function') {
+                USER_CONFIG.sessionName = GM_getValue('coze_session_name');
+            }
+            
+            // 如果没有会话名称，生成一个新的
+            if (!USER_CONFIG.sessionName) {
+                USER_CONFIG.sessionName = generateSessionName();
+                log(`🆕 生成新会话名称: ${USER_CONFIG.sessionName}`, 'info');
+                
+                // 保存到存储
+                if (typeof GM_setValue === 'function') {
+                    GM_setValue('coze_session_name', USER_CONFIG.sessionName);
+                    log('💾 会话名称已保存到本地存储', 'success');
+                }
+            } else {
+                log(`👤 使用现有会话名称: ${USER_CONFIG.sessionName}`, 'info');
+            }
+            
+            log(`📋 用户配置: ${JSON.stringify(USER_CONFIG, null, 2)}`, 'debug');
+            
+        } catch (error) {
+            log(`❌ 用户配置初始化失败: ${error.message}`, 'error');
+            // 如果存储失败，仍然生成一个临时会话名称
+            USER_CONFIG.sessionName = generateSessionName();
+            log(`🆕 使用临时会话名称: ${USER_CONFIG.sessionName}`, 'warn');
+        }
+    }
+
+    // 获取会话特定的JWT Access Token
+    async function fetchSessionJWTAccessToken(sessionName) {
+        log(`🔐 正在为会话 ${sessionName} 获取JWT Access Token...`, 'info');
         
         try {
-            const response = await fetch(CONFIG.JWT_AUTH_SERVER, {
+            // 添加会话名称参数到请求
+            const url = new URL(CONFIG.JWT_AUTH_SERVER);
+            url.searchParams.append('session_name', sessionName);
+            
+            const response = await fetch(url.toString(), {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'  // 确保服务器返回JSON而不是HTML
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Session-Name': sessionName  // 添加自定义头用于服务器识别
                 },
                 credentials: 'include'
             });
@@ -482,9 +536,16 @@
             log(`📋 JWT服务器响应: ${JSON.stringify(data, null, 2)}`, 'debug');
             
             if (data && data.access_token) {
-                log('✅ JWT Access Token 获取成功', 'success');
+                log(`✅ 会话 ${sessionName} 的JWT Access Token获取成功`, 'success');
                 log(`🔑 Token类型: ${data.token_type || 'N/A'}`, 'debug');
                 log(`⏰ 过期时间: ${data.expires_in || 'N/A'}`, 'debug');
+                
+                // 保存用户token
+                USER_CONFIG.userToken = data.access_token;
+                if (typeof GM_setValue === 'function') {
+                    GM_setValue('coze_user_token', data.access_token);
+                }
+                
                 return data.access_token;
             } else {
                 log('❌ 无效的JWT响应格式', 'error');
@@ -492,9 +553,14 @@
                 throw new Error('无效的JWT响应格式');
             }
         } catch (error) {
-            log(`❌ 获取JWT Access Token失败: ${error.message}`, 'error');
+            log(`❌ 获取会话JWT Access Token失败: ${error.message}`, 'error');
             throw error;
         }
+    }
+
+    // 获取JWT Access Token (兼容旧版本)
+    async function fetchJWTAccessToken() {
+        return fetchSessionJWTAccessToken(USER_CONFIG.sessionName);
     }
 
     // 初始化JWT Token
