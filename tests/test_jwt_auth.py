@@ -63,7 +63,7 @@ def test_jwt_server():
     except urllib.error.URLError as e:
         if isinstance(e.reason, ConnectionRefusedError):
             print("❌ 无法连接到JWT服务器，请确保服务器正在运行")
-            print("   运行命令: python JWTOauth/main.py")
+            print("   运行命令: python ../JWTOauth/main.py")
         else:
             print(f"❌ 网络错误: {e}")
         return False

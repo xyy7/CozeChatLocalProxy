@@ -108,7 +108,7 @@ def test_jwt_config():
     print("-" * 60)
     
     # 加载配置文件
-    config_path = "JWTOauth/coze_oauth_config.json"
+    config_path = "../JWTOauth/coze_oauth_config.json"
     try:
         with open(config_path, "r", encoding='utf-8') as f:
             config = json.load(f)

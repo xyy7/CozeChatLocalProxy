@@ -8,7 +8,7 @@ import asyncio
 import json
 import argparse
 import logging
-from cors_proxy_server import CORSProxyServer
+from ..cors_proxy_server import CORSProxyServer
 
 def load_config(config_file='config.json'):
     """加载配置文件"""

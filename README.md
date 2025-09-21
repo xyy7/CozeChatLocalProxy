@@ -1,166 +1,175 @@
-# Coze Chat CORS 代理解决方案
+# Coze Chat Web 本地代理和认证系统
 
-这是一个用于绕过Coze Web SDK的CSP和同源策略限制的本地代理解决方案，包含Tampermonkey用户脚本和Python代理服务器。
+一个为 Coze Chat Web 设计的本地代理服务器和 JWT 认证系统，支持多用户会话管理和 Tampermonkey 脚本集成。
 
-## 项目文件说明
+## 🚀 功能特性
 
-- `coze-chat-tampermonkey-local-proxy.js` - Tampermonkey用户脚本（浏览器端）
-- `cors_proxy_server.py` - CORS代理服务器主程序
-- `start_proxy.py` - 简化启动脚本
-- `install.py` - 依赖安装脚本
-- `start.bat` - Windows批处理启动文件
-- `config.json` - 配置文件
+### 核心功能
+- **CORS 代理服务器** - 解决跨域问题，端口 8080
+- **JWT 认证服务器** - 提供 OAuth 认证和会话管理，端口 8081
+- **多用户支持** - 支持多个用户同时使用不同的会话
+- **Tampermonkey 集成** - 通过用户脚本自动注入认证信息
 
-## 安装流程
+### 技术特性
+- Flask + Flask-CORS 框架
+- JWT (JSON Web Token) 认证
+- OAuth 2.0 兼容流程
+- 数据持久化存储 (GM_setValue/GM_getValue)
+- 自动化测试和验证套件
 
-### 1. 安装Python环境
-确保您已安装Python 3.7或更高版本：
+## 📁 项目结构
+
+```
+.
+├── JWTOauth/                 # JWT 认证服务器
+│   ├── main.py              # 主服务器文件
+│   ├── coze_oauth_config.json # 配置文件
+│   └── __init__.py
+├── scripts/                 # 脚本目录
+│   ├── start_proxy.py      # 启动代理服务器
+│   ├── start_servers.py    # 启动所有服务器
+│   └── check_ports.py      # 端口检查脚本
+├── tests/                  # 测试目录
+│   ├── test_jwt_auth.py    # JWT 认证测试
+│   ├── test_jwt_config.py  # 配置验证测试
+│   ├── test_multi_user.js  # 多用户测试
+│   └── verify_user_id_support.py # 用户ID支持验证
+├── docs/                   # 文档目录
+│   ├── TESTING_GUIDE.md    # 测试指南
+│   ├── MULTI_USER_TEST_GUIDE.md # 多用户测试指南
+│   ├── README_JWT_AUTH.md  # JWT 认证文档
+│   ├── CHANGELOG_JWT_AUTH.md # JWT 变更日志
+│   └── CHANGELOG_MULTI_USER.md # 多用户变更日志
+├── cors_proxy_server.py    # CORS 代理服务器主文件
+├── requirements.txt        # Python 依赖
+├── start_servers.py        # 服务器启动入口
+└── README.md              # 本项目文档
+```
+
+## 🛠️ 安装和配置
+
+### 前置要求
+- Python 3.8+
+- Tampermonkey 浏览器扩展
+- 现代浏览器 (Chrome/Firefox/Edge)
+
+### 安装步骤
+
+1. **克隆或下载项目**
+   ```bash
+   git clone <repository-url>
+   cd cozeChatWeb
+   ```
+
+2. **安装 Python 依赖**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **配置 JWT 认证**
+   - 编辑 `JWTOauth/coze_oauth_config.json`
+   - 设置您的 Coze API 密钥和其他配置
+
+### 启动服务器
+
+**方式一：启动所有服务器**
 ```bash
-python --version
+python start_servers.py
 ```
 
-### 2. 安装依赖包
-运行安装脚本自动安装所需依赖：
+**方式二：分别启动**
 ```bash
-python install.py
+# 启动 CORS 代理服务器 (端口 8080)
+python scripts/start_proxy.py
+
+# 启动 JWT 认证服务器 (端口 8081)
+python JWTOauth/main.py
 ```
 
-或者手动安装：
+## 📖 使用指南
+
+### 1. 安装 Tampermonkey 脚本
+将 `coze-chat-tampermonkey-local-proxy.js` 安装到 Tampermonkey 中。
+
+### 2. 配置用户脚本
+脚本会自动检测本地服务器并注入认证信息。
+
+### 3. 访问 Coze Chat Web
+打开 Coze Chat Web 页面，脚本会自动处理认证。
+
+## 🧪 测试和验证
+
+### 运行测试套件
+
 ```bash
-pip install aiohttp certifi
+# 测试 JWT 配置
+python tests/test_jwt_config.py
+
+# 测试 JWT 认证
+python tests/test_jwt_auth.py
+
+# 测试多用户支持
+node tests/test_multi_user.js
 ```
 
-### 3. 安装Tampermonkey浏览器扩展
-- Chrome: 从Chrome网上应用店安装Tampermonkey
-- Firefox: 从Firefox附加组件商店安装Tampermonkey
-- Edge: 从Microsoft Store安装Tampermonkey
+### 验证功能
+- 使用 `check_ports.py` 检查服务器状态
+- 使用 `verify_user_id_support.py` 验证用户ID支持
 
-## 脚本安装到浏览器
-
-### 方法1：直接安装（推荐）
-1. 打开Tampermonkey扩展
-2. 点击"创建新脚本"
-3. 复制 `coze-chat-tampermonkey-local-proxy.js` 的全部内容
-4. 粘贴到编辑器中并保存
-
-### 方法2：文件导入
-1. 在Tampermonkey中点击"实用工具"
-2. 选择"文件"标签页
-3. 点击"选择文件"并选择 `coze-chat-tampermonkey-local-proxy.js`
-4. 点击"安装"
-
-### 方法3：URL安装
-如果脚本托管在网络上，可以通过URL直接安装。
-
-## 启动本地服务器
-
-### Windows系统
-双击运行 `start.bat` 文件，或命令行运行：
-```cmd
-start.bat
-```
-
-### macOS/Linux系统
-```bash
-python start_proxy.py
-```
-
-或者直接运行主服务器：
-```bash
-python cors_proxy_server.py
-```
-
-### 自定义配置启动
-```bash
-# 指定主机和端口
-python start_proxy.py --host 127.0.0.1 --port 8080
-
-# 使用自定义配置文件
-python start_proxy.py --config my_config.json
-
-# 启用调试模式
-python start_proxy.py --debug
-```
-
-## 验证服务器运行
-
-服务器启动后，访问以下地址验证：
-```
-http://127.0.0.1:8080/
-```
-
-应该看到类似这样的响应：
-```json
-{
-  "service": "CORS Proxy Server",
-  "version": "1.0.0",
-  "endpoints": {
-    "GET /{url}": "代理GET请求",
-    "POST /{url}": "代理POST请求",
-    "PUT /{url}": "代理PUT请求",
-    "DELETE /{url}": "代理DELETE请求",
-    "OPTIONS /{url}": "处理预检请求"
-  },
-  "usage": "将目标URL编码后附加到代理URL后，例如: /https://example.com/api/data"
-}
-```
-
-## 使用流程
-
-1. **启动代理服务器** - 运行上述启动命令
-2. **安装用户脚本** - 在浏览器中安装Tampermonkey脚本
-3. **访问Coze网站** - 打开 https://www.coze.cn/ 或 https://www.coze.com/
-4. **自动注入** - 脚本会自动检测并注入Coze聊天组件
-
-## 故障排除
+## 🔧 故障排除
 
 ### 常见问题
 
-1. **Python未安装**
-   - 下载并安装Python 3.7+ from python.org
+1. **端口冲突**
+   - 检查 8080 和 8081 端口是否被占用
+   - 使用 `check_ports.py` 诊断问题
 
-2. **依赖安装失败**
-   - 尝试使用管理员权限运行命令
-   - 或者使用: `pip install --user aiohttp certifi`
+2. **认证失败**
+   - 验证 JWT 服务器是否正常运行
+   - 检查配置文件是否正确
 
-3. **端口被占用**
-   - 修改config.json中的端口号
-   - 或使用: `python start_proxy.py --port 8081`
+3. **跨域问题**
+   - 确保 CORS 代理服务器正在运行
 
-4. **代理服务器无法连接**
-   - 检查防火墙设置
-   - 确保代理服务器正在运行
+### 调试模式
+在 Tampermonkey 脚本中启用调试模式查看详细日志。
 
-5. **CSP限制仍然存在**
-   - 检查浏览器控制台错误信息
-   - 确保代理URL配置正确
+## 📝 开发文档
 
-### 日志查看
+- [测试指南](./docs/TESTING_GUIDE.md)
+- [多用户测试指南](./docs/MULTI_USER_TEST_GUIDE.md)
+- [JWT 认证文档](./docs/README_JWT_AUTH.md)
 
-服务器日志默认输出到控制台，如需查看详细日志：
-- 修改config.json中的logging配置
-- 或查看生成的cors_proxy.log文件
+## 🗂️ 文件说明
 
-## 配置说明
+### 主要文件
+- `cors_proxy_server.py` - CORS 代理服务器实现
+- `JWTOauth/main.py` - JWT 认证服务器主文件
+- `start_servers.py` - 统一启动脚本
 
-编辑 `config.json` 文件来自定义设置：
+### 脚本文件
+- `scripts/start_proxy.py` - 代理服务器启动脚本
+- `scripts/check_ports.py` - 端口检查工具
+- `coze-chat-tampermonkey-local-proxy.js` - 用户脚本
 
-- `server` - 服务器配置（主机、端口、调试模式）
-- `security` - 安全设置（允许的域名、最大请求大小）
-- `logging` - 日志配置（级别、格式、文件）
-- `performance` - 性能设置（超时、最大连接数）
+### 测试文件
+- `tests/` - 所有测试和验证脚本
+- `verify_*.py` - 功能验证脚本
 
-## 技术支持
+## 🔄 更新日志
 
-如果遇到问题：
-1. 检查浏览器控制台错误信息
-2. 查看服务器控制台输出
-3. 确保所有步骤都正确执行
+详细变更记录请查看：
+- [JWT 认证变更日志](./docs/CHANGELOG_JWT_AUTH.md)
+- [多用户功能变更日志](./docs/CHANGELOG_MULTI_USER.md)
 
-## 更新日志
+## 🤝 贡献指南
 
-- v1.0.0 - 初始版本发布
-  - 支持Coze Web SDK代理
-  - 自动CORS头处理
-  - 多请求方法支持
-  - Windows批处理支持
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License
+
+## 📞 支持
+
+如有问题，请提交 Issue 或查看相关文档。
