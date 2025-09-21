@@ -30,12 +30,12 @@
         BOT_ID: '7451481843796787219',
         TITLE: 'Coze AI 助手',
         SDK_URL: 'https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js',
-        TOKEN: 'pat_xiXSWip6TOYrMRGbpL3PuNZNob6GomnvZCvkiT7sWaddMzhnHAa6aFomcx93CkfB',
-        REFRESH_TOKEN: 'pat_xiXSWip6TOyMRGbpL3PuNZNob6GomnvZCvkiT7sWaddMzhnHAa6aFomcx93CkfB',
         TIMEOUT: 15000,
         RETRY_ATTEMPTS: 3,
         LOCAL_PROXY_URL: 'http://127.0.0.1:8080/',
-        PROXY_CHECK_TIMEOUT: 3000
+        PROXY_CHECK_TIMEOUT: 3000,
+        JWT_AUTH_SERVER: 'http://127.0.0.1:8081/callback', // JWTOauth服务器回调地址
+        TOKEN_REFRESH_INTERVAL: 3600000 // 1小时刷新一次token
     };
     
     // 不再需要PROXY_SERVICES数组，直接使用CONFIG.LOCAL_PROXY_URL
@@ -282,7 +282,7 @@
     }
     
     // 初始化聊天客户端
-    function initializeChatClient() {
+    async function initializeChatClient() {
         log('🔄 初始化聊天客户端...', 'info');
         
         // 检查CozeWebSDK是否已定义且可用
@@ -312,6 +312,18 @@
             
             log('✅ CozeWebSDK 加载成功，开始创建聊天客户端', 'success');
             
+            // 首先检查JWT服务器是否可用
+            log('🔍 检查JWT服务器状态...', 'info');
+            const isJWTServerAvailable = await checkJWTServerAvailability();
+            
+            if (!isJWTServerAvailable) {
+                throw new Error('JWT认证服务器不可用，请确保JWTOauth服务器正在运行');
+            }
+            
+            // 获取JWT token
+            log('🔐 获取初始JWT token...', 'info');
+            const initialToken = await initializeJWTAuth();
+            
             const chatClient = new CozeWebSDK.WebChatClient({
                 config: {
                     bot_id: CONFIG.BOT_ID
@@ -324,10 +336,17 @@
                 },
                 auth: {
                     type: 'token',
-                    token: CONFIG.TOKEN,
-                    onRefreshToken: function() {
-                        log('🔄 Token 刷新中...', 'info');
-                        return CONFIG.REFRESH_TOKEN;
+                    token: initialToken, // 使用获取到的初始token
+                    onRefreshToken: async function() {
+                        log('🔄 JWT Token 刷新中...', 'info');
+                        try {
+                            const newToken = await fetchJWTAccessToken();
+                            log('✅ JWT Token 刷新成功', 'success');
+                            return newToken;
+                        } catch (error) {
+                            log(`❌ JWT Token 刷新失败: ${error.message}`, 'error');
+                            throw error;
+                        }
                     }
                 }
             });
@@ -339,7 +358,7 @@
             if (typeof GM_notification === 'function') {
                 GM_notification({
                     title: 'Coze 聊天注入成功',
-                    text: '使用本地代理模式加载',
+                    text: '使用JWT认证和本地代理模式',
                     timeout: 3000
                 });
             }
@@ -348,6 +367,14 @@
             log('❌ Coze 聊天组件初始化失败', 'error');
             log(`📛 错误: ${error.message}`, 'error');
             log(`📋 堆栈: ${error.stack}`, 'debug');
+            
+            // 如果是JWT认证失败，提供具体建议
+            if (error.message.includes('JWT') || error.message.includes('token')) {
+                log('🔧 JWT认证问题诊断:', 'info');
+                log('   - 检查JWTOauth服务器是否运行在127.0.0.1:8080', 'info');
+                log('   - 确认JWT配置正确 (coze_oauth_config.json)', 'info');
+                log('   - 检查网络连接和CORS设置', 'info');
+            }
         }
     }
     
@@ -427,6 +454,98 @@
         log(`🖥️ UserAgent: ${navigator.userAgent}`, 'debug');
         log(`🔗 SDK URL: ${CONFIG.SDK_URL}`, 'debug');
         log(`🤖 Bot ID: ${CONFIG.BOT_ID}`, 'debug');
+        log(`🔐 JWT Auth Server: ${CONFIG.JWT_AUTH_SERVER}`, 'debug');
+    }
+
+    // 获取JWT Access Token
+    async function fetchJWTAccessToken() {
+        log('🔐 正在获取JWT Access Token...', 'info');
+        
+        try {
+            const response = await fetch(CONFIG.JWT_AUTH_SERVER, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'  // 确保服务器返回JSON而不是HTML
+                },
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // 调试输出：显示获取到的响应内容
+            log(`📋 JWT服务器响应: ${JSON.stringify(data, null, 2)}`, 'debug');
+            
+            if (data && data.access_token) {
+                log('✅ JWT Access Token 获取成功', 'success');
+                log(`🔑 Token类型: ${data.token_type || 'N/A'}`, 'debug');
+                log(`⏰ 过期时间: ${data.expires_in || 'N/A'}`, 'debug');
+                return data.access_token;
+            } else {
+                log('❌ 无效的JWT响应格式', 'error');
+                log(`📋 响应内容: ${JSON.stringify(data, null, 2)}`, 'error');
+                throw new Error('无效的JWT响应格式');
+            }
+        } catch (error) {
+            log(`❌ 获取JWT Access Token失败: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    // 初始化JWT Token
+    async function initializeJWTAuth() {
+        try {
+            const accessToken = await fetchJWTAccessToken();
+            return accessToken;
+        } catch (error) {
+            log('❌ JWT认证初始化失败', 'error');
+            throw error;
+        }
+    }
+
+    // 检查JWT服务器是否可用
+    async function checkJWTServerAvailability() {
+        log('🔍 检查JWT服务器连接性...', 'info');
+        
+        try {
+            // 首先检查服务器主页是否可访问
+            const response = await fetch('http://127.0.0.1:8081/', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'text/html'
+                },
+                credentials: 'omit',
+                signal: AbortSignal.timeout(3000)
+            });
+
+            if (response.ok) {
+                log('✅ JWT服务器主页访问正常', 'success');
+                log(`📋 服务器状态码: ${response.status}`, 'debug');
+                log(`📋 Content-Type: ${response.headers.get('Content-Type') || 'N/A'}`, 'debug');
+                return true;
+            } else {
+                log(`❌ JWT服务器返回状态码: ${response.status}`, 'error');
+                log(`📋 响应头: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`, 'debug');
+                return false;
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                log('⏰ JWT服务器连接超时', 'error');
+            } else if (error.message.includes('Failed to fetch')) {
+                log('❌ 无法连接到JWT服务器，请确保服务器正在运行', 'error');
+                log('💡 运行命令: python JWTOauth/main.py', 'info');
+                log(`📋 详细错误: ${error.message}`, 'debug');
+            } else {
+                log(`❌ JWT服务器检查失败: ${error.message}`, 'error');
+                log(`📋 错误类型: ${error.name}`, 'debug');
+            }
+            return false;
+        }
     }
     
     // 启动注入
