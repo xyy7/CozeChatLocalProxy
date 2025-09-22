@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coze聊天简单演示</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .loading { background: #e3f2fd; color: #1565c0; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #1976d2; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .instructions {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        #chat-container {
+            transition: all 0.3s ease;
+        }
+        #chat-bot-wrapper {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Coze聊天简单演示</h1>
+        
+        <div class="instructions">
+            <h3>使用说明：</h3>
+            <ol>
+                <li>确保JWT认证服务器正在运行（端口8081）</li>
+                <li>点击"启动聊天"按钮开始</li>
+                <li>聊天窗口将出现在页面中央</li>
+            </ol>
+        </div>
+
+        <div id="status" class="status loading">等待启动...</div>
+        
+        <div>
+            <button id="start-btn" onclick="startChat()">🚀 启动聊天</button>
+            <button id="stop-btn" onclick="stopChat()" disabled>🛑 停止聊天</button>
+        </div>
+
+        <!-- 聊天框容器 -->
+        <div id="chat-container" style="display: none; margin-top: 20px; text-align: center;">
+            <div id="chat-bot-wrapper" style="display: inline-block; width: 800px; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;"></div>
+        </div>
+
+        <div id="debug-info" style="margin-top: 20px; font-size: 12px; color: #666;"></div>
+    </div>
+
+    <!-- 直接加载Coze SDK -->
+    <script src="https://lf-cdn.coze.cn/obj/unpkg/flow-platform/chat-app-sdk/1.2.0-beta.10/libs/cn/index.js"></script>
+
+    <script>
+        // 配置
+        const CONFIG = {
+            BOT_ID: '7451481843796787219',
+            JWT_SERVER: 'http://127.0.0.1:8081/callback',  // 使用本地服务器路径
+            SESSION_NAME: 'simple_demo_' + Date.now().toString(36)
+        };
+
+        let chatClient = null;
+        let isInitialized = false;
+
+        // 更新状态
+        function updateStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // 添加调试信息
+        function addDebugInfo(info) {
+            const debugEl = document.getElementById('debug-info');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.innerHTML += `[${timestamp}] ${info}<br>`;
+        }
+
+        // 获取JWT Token（使用相对路径，无跨域问题）
+        async function getJWTAccessToken() {
+            try {
+                updateStatus('🔐 获取JWT Token中...', 'loading');
+                addDebugInfo('开始获取JWT Token');
+                
+                const response = await fetch(CONFIG.JWT_SERVER + '?session_name=' + CONFIG.SESSION_NAME, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data && data.access_token) {
+                    updateStatus('✅ JWT Token获取成功', 'success');
+                    addDebugInfo(`JWT Token获取成功，会话: ${CONFIG.SESSION_NAME}`);
+                    return data.access_token;
+                } else {
+                    throw new Error('无效的JWT响应格式');
+                }
+            } catch (error) {
+                updateStatus(`❌ JWT Token获取失败: ${error.message}`, 'error');
+                addDebugInfo(`JWT Token获取失败: ${error.message}`);
+                throw error;
+            }
+        }
+
+        // 检查Coze SDK是否加载
+        function checkCozeSDK() {
+            if (typeof CozeWebSDK !== 'undefined') {
+                addDebugInfo('Coze SDK已加载');
+                return true;
+            } else {
+                addDebugInfo('Coze SDK未加载，等待中...');
+                return false;
+            }
+        }
+
+        // 启动聊天
+        async function startChat() {
+            if (isInitialized) {
+                updateStatus('聊天已启动', 'success');
+                return;
+            }
+
+            try {
+                // 禁用启动按钮，启用停止按钮
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+
+                // 检查SDK
+                if (!checkCozeSDK()) {
+                    updateStatus('❌ Coze SDK加载失败', 'error');
+                    addDebugInfo('请检查网络连接或刷新页面');
+                    return;
+                }
+
+                // 获取JWT Token
+                const accessToken = await getJWTAccessToken();
+
+                // 初始化聊天客户端
+                updateStatus('🔄 初始化聊天客户端...', 'loading');
+                addDebugInfo('开始初始化Coze聊天客户端');
+
+                chatClient = new CozeWebSDK.WebChatClient({
+                    config: {
+                        bot_id: CONFIG.BOT_ID
+                    },
+                    ui: {
+                        asstBtn: {
+                            isNeed: false,
+                        },
+                        chatBot: {
+                            width: 800,
+                            height: 600,
+                            el: document.getElementById('chat-bot-wrapper')
+                        }
+                    },
+                    auth: {
+                        type: 'token',
+                        token: accessToken,
+                        onRefreshToken: async function() {
+                            addDebugInfo('🔄 Token刷新中...');
+                            try {
+                                const newToken = await getJWTAccessToken();
+                                addDebugInfo('✅ Token刷新成功');
+                                return newToken;
+                            } catch (error) {
+                                addDebugInfo(`❌ Token刷新失败: ${error.message}`);
+                                throw error;
+                            }
+                        }
+                    }
+                });
+
+                // 简化初始化逻辑 - 直接显示聊天容器
+                updateStatus('✅ 聊天准备就绪！', 'success');
+                addDebugInfo('聊天组件初始化完成');
+                isInitialized = true;
+                
+                // 显示聊天容器
+                document.getElementById('chat-container').style.display = 'block';
+
+                chatClient.showChatBot();
+
+            } catch (error) {
+                updateStatus(`❌ 启动失败: ${error.message}`, 'error');
+                addDebugInfo(`启动失败: ${error.message}`);
+                
+                // 重新启用启动按钮
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('stop-btn').disabled = true;
+            }
+        }
+
+        // 停止聊天
+        function stopChat() {
+            if (chatClient) {
+                try {
+                    chatClient.destroy();
+                    chatClient = null;
+                    isInitialized = false;
+                    updateStatus('聊天已停止', 'success');
+                    addDebugInfo('聊天组件已停止');
+                    
+                    // 隐藏聊天容器
+                    document.getElementById('chat-container').style.display = 'none';
+                } catch (error) {
+                    addDebugInfo(`停止聊天时出错: ${error.message}`);
+                }
+            }
+            
+            // 重新启用启动按钮，禁用停止按钮
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+        }
+
+        // 页面加载完成后的初始化
+        window.addEventListener('load', function() {
+            updateStatus('✅ 页面加载完成，点击"启动聊天"开始', 'success');
+            addDebugInfo('页面加载完成');
+            
+            // 检查SDK加载状态
+            setTimeout(() => {
+                if (checkCozeSDK()) {
+                    addDebugInfo('Coze SDK自动加载成功');
+                } else {
+                    addDebugInfo('Coze SDK可能需要手动刷新');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
